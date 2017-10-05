@@ -22,11 +22,50 @@ try:
 except ImportError:
     import unittest.mock as mock
 
-import errno
 from marvin_python_toolbox.management.pkg import _clone
 from marvin_python_toolbox.management.pkg import copy
 from marvin_python_toolbox.management.pkg import get_git_branch
 from marvin_python_toolbox.management.pkg import is_git_clean
+from marvin_python_toolbox.management.pkg import get_git_tags
+from marvin_python_toolbox.management.pkg import get_git_repository_url
+from marvin_python_toolbox.management.pkg import get_git_tag
+from marvin_python_toolbox.management.pkg import get_git_commit
+from marvin_python_toolbox.management.pkg import get_tag_from_repo_url
+from marvin_python_toolbox.management.pkg import get_repos_from_requirements
+
+
+@mock.patch("marvin_python_toolbox.management.pkg.open")
+@mock.patch("marvin_python_toolbox.management.pkg.os.path.join")
+@mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
+def test_get_repos_from_requirements(curdir_mocked, join_mocked, open_mocked):
+    join_mocked.return_value = '/tmp'
+
+    get_repos_from_requirements(path=None)
+
+    curdir_mocked.assert_called_once
+    join_mocked.assert_called_with(curdir_mocked, 'requirements.txt')
+    open_mocked.assert_called_with('/tmp', 'r')
+
+    get_repos_from_requirements(path='/path')
+
+    join_mocked.assert_called_with('/path', 'requirements.txt')
+    open_mocked.assert_called_with('/tmp', 'r')
+
+    # TODO: Assert return value
+
+
+def test_get_tag_from_repo_url():
+    repos = ['http://www.xxx.org:80/tag@/repo.html']
+
+    tags = get_tag_from_repo_url(repos)
+
+    assert tags == {'http://www.xxx.org:80/tag@/repo.html': "/repo.html"}
+
+    repos = ['http://www.xxx.org:80/tag/repo.html']
+
+    tags = get_tag_from_repo_url(repos)
+
+    assert tags == {'http://www.xxx.org:80/tag/repo.html': None}
 
 
 @mock.patch("marvin_python_toolbox.management.pkg.git_clone")
@@ -52,31 +91,6 @@ def test_copy(copytree_mocked, ignore_mocked):
     ignore_mocked.assert_called_once_with(*ignore)
 
 
-# TODO: assert OSError
-
-# @mock.patch("marvin_python_toolbox.management.pkg.shutil.copy")
-# @mock.patch("marvin_python_toolbox.management.pkg.shutil.copytree")
-# def test_copy_except(copytree_mocked, copy_mocked):
-#     src = "/xpto"
-#     dest = "/xpto_dest"
-#     ignore = (".git")
-#     copy(src, dest, ignore)
-
-#     copytree_mocked.side_effect = OSError(errno.ENOTDIR, 'Some error was thrown')
-#     copy_mocked.assert_called_once_with(src, dest)
-
-
-# Original code
-# def copy(src, dest, ignore=('.git', '.pyc', '__pycache__')):
-#     try:
-#         shutil.copytree(src, dest, ignore=shutil.ignore_patterns(*ignore))
-#     except OSError as e:
-#         if e.errno == errno.ENOTDIR:
-#             shutil.copy(src, dest)
-#         else:
-#             print('Directory not copied. Error: %s' % e)
-
-
 @mock.patch("marvin_python_toolbox.management.pkg.subprocess.PIPE")
 @mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
 @mock.patch("marvin_python_toolbox.management.pkg.subprocess.Popen")
@@ -87,15 +101,101 @@ def test_get_git_branch(popen_mocked, curdir_mocked, pipe_mocked):
 
     branch = get_git_branch()
 
+    curdir_mocked.assert_called_once
     popen_mocked.assert_called_once_with(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=pipe_mocked, cwd=curdir_mocked)
     mockx.stdout.assert_called_once
-    curdir_mocked.assert_called_once
 
     assert branch == "branch"
 
     branch = get_git_branch(path="/tmp")
 
     popen_mocked.assert_called_with(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=pipe_mocked, cwd="/tmp")
+
+
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.PIPE")
+@mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.Popen")
+def test_get_git_tag(popen_mocked, curdir_mocked, pipe_mocked):
+    mockx = mock.MagicMock()
+    mockx.stdout.read.return_value = "tag "
+    popen_mocked.return_value = mockx
+
+    tags = get_git_tag()
+
+    curdir_mocked.assert_called_once
+    mockx.stdout.assert_called_once
+    popen_mocked.assert_called_with(['git', 'describe', '--tags', 'tag'], stdout=pipe_mocked, cwd=curdir_mocked)
+
+    assert tags == "tag"
+
+    tags = get_git_tag(path="/tmp")
+
+    popen_mocked.assert_called_with(['git', 'describe', '--tags', 'tag'], stdout=pipe_mocked, cwd="/tmp")
+
+
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.PIPE")
+@mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.Popen")
+def test_get_git_commit(popen_mocked, curdir_mocked, pipe_mocked):
+    mockx = mock.MagicMock()
+    mockx.stdout.read.return_value = "commit "
+    popen_mocked.return_value = mockx
+
+    commit = get_git_commit()
+
+    curdir_mocked.assert_called_once
+    popen_mocked.assert_called_once_with(['git', 'rev-parse', 'HEAD'], stdout=pipe_mocked, cwd=curdir_mocked)
+
+    assert commit == "commit"
+
+    commit = get_git_commit(path="/tmp")
+    popen_mocked.assert_called_with(['git', 'rev-parse', 'HEAD'], stdout=pipe_mocked, cwd="/tmp")
+
+    commit = get_git_commit(tag="tag")
+    curdir_mocked.assert_called_once
+    popen_mocked.assert_called_with(['git', 'rev-list', '-n', '1', 'tag'], stdout=pipe_mocked, cwd=curdir_mocked)
+
+
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.PIPE")
+@mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.Popen")
+def test_get_git_repository_url(popen_mocked, curdir_mocked, pipe_mocked):
+    mockx = mock.MagicMock()
+    mockx.stdout.read.return_value = "url "
+    popen_mocked.return_value = mockx
+
+    url = get_git_repository_url()
+
+    curdir_mocked.assert_called_once
+    popen_mocked.assert_called_once_with(['git', 'config', '--get', 'remote.origin.url'], stdout=pipe_mocked, cwd=curdir_mocked)
+    mockx.stdout.assert_called_once
+
+    assert url == "url"
+
+    url = get_git_repository_url(path="www.xxx.com")
+
+    popen_mocked.assert_called_with(['git', 'config', '--get', 'remote.origin.url'], stdout=pipe_mocked, cwd="www.xxx.com")
+
+
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.PIPE")
+@mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.Popen")
+def test_get_git_tags(popen_mocked, curdir_mocked, pipe_mocked):
+    mockx = mock.MagicMock()
+    mockx.stdout.read.return_value = "git\ntags "
+    popen_mocked.return_value = mockx
+
+    tags = get_git_tags()
+
+    curdir_mocked.assert_called_once
+    popen_mocked.assert_called_once_with(['git', 'tag'], stdout=pipe_mocked, cwd=curdir_mocked)
+    mockx.stdout.assert_called_once
+
+    assert tags == ['tags', 'git']
+
+    tags = get_git_tags(path="/tmp")
+
+    popen_mocked.assert_called_with(['git', 'tag'], stdout=pipe_mocked, cwd="/tmp")
 
 
 @mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
