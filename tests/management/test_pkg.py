@@ -198,15 +198,21 @@ def test_get_git_tags(popen_mocked, curdir_mocked, pipe_mocked):
     popen_mocked.assert_called_with(['git', 'tag'], stdout=pipe_mocked, cwd="/tmp")
 
 
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.PIPE")
+@mock.patch("marvin_python_toolbox.management.pkg.subprocess.Popen")
 @mock.patch("marvin_python_toolbox.management.pkg.os.path.curdir")
 @mock.patch("marvin_python_toolbox.management.pkg.subprocess.call")
-def test_is_git_clean(call_mocked, curdir_mocked):
+def test_is_git_clean(call_mocked, curdir_mocked, popen_mocked, pipe_mocked):
     curdir_mocked.return_value = 1
 
-    is_git_clean()
+    clean = is_git_clean()
     curdir_mocked.assert_called_once
-    call_mocked.assert_called_once_with(['git', 'diff', '--quiet', 'HEAD'])
+    popen_mocked.assert_called_once_with(['git', 'diff', '--quiet', 'HEAD'], stdout=pipe_mocked, cwd=curdir_mocked)
 
-    assert True
+    assert clean == 0
 
-    is_git_clean("/tmp")
+    clean = is_git_clean('/tmp')
+
+    popen_mocked.assert_called_with(['git', 'diff', '--quiet', 'HEAD'], stdout=pipe_mocked, cwd='/tmp')
+
+    assert clean == 0
