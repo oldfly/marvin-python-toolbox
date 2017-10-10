@@ -2,9 +2,9 @@
 
 # Marvin Toolbox v0.0.1
 
-# Quick Start - Marvin Artificial Intelligence Platform
-
 ![](https://images-americanas.b2w.io/img/_staging/marvin/marvin.png)
+
+# Quick Start
 
 ## Review
 
