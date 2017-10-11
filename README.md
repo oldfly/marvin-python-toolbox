@@ -8,7 +8,7 @@
 
 ## Review
 
-**Marvin** is an open source Artificial Intelligence plataform that focus on help data science team members, in an easy way, to deliver complex solutions supported by a high-scale, low-latency, language agnostic and standardized architecture while simplifying the process of exploitation and modeling.
+**Marvin** is an open source Artificial Intelligence platform that focus on help data science team members, in an easy way, to deliver complex solutions supported by a high-scale, low-latency, language agnostic and standardized architecture while simplifying the process of exploitation and modeling.
 
 ## Getting Started
 * [Installing Marvin (Ubuntu and MacOS user)](#installing-marvin-as-ubuntu-and-macos-user)
@@ -104,7 +104,7 @@ $ make marvin
 workon python-toolbox-env
 marvin engine-generate
 ```
-Respond the interactive prompt and wait for the engine environment preparation, and don´t forget to start dev box before if you are using vagrant.
+Respond the interactive prompt and wait for the engine environment preparation, and don't forget to start dev box before if you are using vagrant.
 
 2. Test the new engine
 ```
@@ -116,7 +116,7 @@ $ marvin test
 $ marvin --help
 ```
 ### Working in an existing engine
-1. Set VirtualEnv and get to engine´s path
+1. Set VirtualEnv and get to engine's path
 ```
 $ workon <engine_name>-env
 ```
@@ -170,7 +170,7 @@ $ git clone https://github.com/marvin-ai/engines.git
 $ workon python-toolbox-env
 $ marvin engine-generateenv ../engines/iris-species-engine/
 ```
-3. Run the Iris species engine engine
+3. Run the Iris species engine
 ```
 $ workon iris-species-engine-env
 $ marvin engine-dryrun 
