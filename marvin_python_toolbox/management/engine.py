@@ -30,6 +30,9 @@ import jinja2
 import six
 from unidecode import unidecode
 import multiprocessing
+from marvin_python_toolbox.common.profiling import profiling
+from marvin_python_toolbox.common.data import MarvinData
+from marvin_python_toolbox.common.config import Config
 
 from .._logging import get_logger
 
@@ -38,6 +41,8 @@ logger = get_logger('management.engine')
 
 MARVIN_HOME = os.getenv('MARVIN_HOME')
 MARVIN_DATA_PATH = os.getenv('MARVIN_DATA_PATH')
+
+TOOLBOX_VERSION = "0.0.1"
 
 
 @click.group('engine')
@@ -58,17 +63,15 @@ def cli():
 @click.option('--metrics', '-me', help='Engine Metrics file path', type=click.Path(exists=True))
 @click.option('--params-file', '-pf', default='engine.params', help='Marvin engine params file path', type=click.Path(exists=True))
 @click.option('--messages-file', '-mf', default='engine.messages', help='Marvin engine predictor input messages file path', type=click.Path(exists=True))
-@click.option('--response', '-r', default=False, is_flag=True, help='If enable, print responses from engine online actions (ppreparator and predictor)')
-@click.option('--spark-conf', '-c', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
+@click.option('--response', '-r', default=True, is_flag=True, help='If enable, print responses from engine online actions (ppreparator and predictor)')
+@click.option('--profiling', default=False, is_flag=True, help='Enable execute method profiling')
+@click.option('--spark-conf', '-c', default='/opt/spark/conf', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
 @click.pass_context
-def dryrun(ctx, action, params_file, messages_file, initial_dataset, dataset, model, metrics, response, spark_conf):
+def dryrun(ctx, action, params_file, messages_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
 
     print(chr(27) + "[2J")
 
-    initial_start_time = time.time()
-
     # setting spark configuration directory
-    spark_conf = '/usr/opt/spark' if not spark_conf else None
     os.system("SPARK_CONF_DIR={0} YARN_CONF_DIR={0}".format(spark_conf))
 
     params = read_file(params_file)
@@ -85,8 +88,10 @@ def dryrun(ctx, action, params_file, messages_file, initial_dataset, dataset, mo
 
     dryrun = MarvinDryRun(ctx=ctx, messages=messages, print_response=response)
 
+    initial_start_time = time.time()
+
     for step in pipeline:
-        dryrun.execute(clazz=CLAZZES[step], params=params, initial_dataset=initial_dataset, dataset=dataset, model=model, metrics=metrics)
+        dryrun.execute(clazz=CLAZZES[step], params=params, initial_dataset=initial_dataset, dataset=dataset, model=model, metrics=metrics, profiling_enabled=profiling)
 
     print("Total Time : {:.2f}s".format(time.time() - initial_start_time))
 
@@ -111,7 +116,7 @@ class MarvinDryRun(object):
         self.kwargs = None
         self.print_response = print_response
 
-    def execute(self, clazz, params, initial_dataset, dataset, model, metrics):
+    def execute(self, clazz, params, initial_dataset, dataset, model, metrics, profiling_enabled=False):
         self.print_start_step(clazz)
 
         _Step = dynamic_import("{}.{}".format(self.package_name, clazz))
@@ -132,7 +137,15 @@ class MarvinDryRun(object):
                     print("\nMessage {} :\n".format(msg_idx))
                     print_message(msg)
 
-            result = step.execute(input_message=msg)
+            if profiling_enabled:
+                with profiling(output_path=".profiling", uid=clazz) as prof:
+                    result = step.execute(input_message=msg)
+
+                prof.disable
+                print("\nProfile images created in {}\n".format(prof.image_path))
+
+            else:
+                result = step.execute(input_message=msg)
 
             if self.print_response:
                 print("\nResult for Message {} :\n".format(msg_idx))
@@ -154,7 +167,16 @@ class MarvinDryRun(object):
                 call_online_actions(step, msg, idx)
 
         else:
-            step.execute()
+            if profiling_enabled:
+                with profiling(output_path=".profiling", uid=clazz) as prof:
+                    step.execute()
+
+                prof.disable
+
+                print("\nProfile images created in {}\n".format(prof.image_path))
+
+            else:
+                step.execute()
 
         self.print_finish_step()
 
@@ -212,7 +234,7 @@ def generate_kwargs(clazz, params=None, initial_dataset=None, dataset=None, mode
 
 class MarvinEngineServer(object):
     @classmethod
-    def create(self, ctx, action, port, workers, params, initial_dataset, dataset, model, metrics, pipeline):
+    def create(self, ctx, action, port, workers, rpc_workers, params, initial_dataset, dataset, model, metrics, pipeline):
         package_name = ctx.obj['package_name']
 
         def create_object(act):
@@ -229,7 +251,7 @@ class MarvinEngineServer(object):
                 previous_object._previous_step = create_object(step)
                 previous_object = previous_object._previous_step
 
-        server = root_obj._prepare_remote_server(port=port, workers=workers)
+        server = root_obj._prepare_remote_server(port=port, workers=workers, rpc_workers=rpc_workers)
 
         print("Starting GRPC server [{}] for {} Action".format(port, action))
         server.start()
@@ -250,14 +272,15 @@ class MarvinEngineServer(object):
 @click.option('--metrics', '-me', help='Engine Metrics file path', type=click.Path(exists=True))
 @click.option('--params-file', '-pf', default='engine.params', help='Marvin engine params file path', type=click.Path(exists=True))
 @click.option('--metadata-file', '-mf', default='engine.metadata', help='Marvin engine metadata file path', type=click.Path(exists=True))
-@click.option('--spark-conf', '-c', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
+@click.option('--spark-conf', '-c', default='/opt/spark/conf', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
+@click.option('--max-workers', '-w', default=multiprocessing.cpu_count(), help='Max number of grpc threads workers per action')
+@click.option('--max-rpc-workers', '-rw', default=multiprocessing.cpu_count(), help='Max number of grpc workers per action')
 @click.pass_context
-def engine_server(ctx, action, params_file, metadata_file, initial_dataset, dataset, model, metrics, spark_conf):
+def engine_server(ctx, action, params_file, metadata_file, initial_dataset, dataset, model, metrics, spark_conf, max_workers, max_rpc_workers):
 
     print("Starting server ...")
 
     # setting spark configuration directory
-    spark_conf = '/usr/opt/spark' if not spark_conf else None
     os.system("SPARK_CONF_DIR={0} YARN_CONF_DIR={0}".format(spark_conf))
 
     params = read_file(params_file)
@@ -276,7 +299,8 @@ def engine_server(ctx, action, params_file, metadata_file, initial_dataset, data
             ctx=ctx,
             action=action_name,
             port=action[action_name]["port"],
-            workers=multiprocessing.cpu_count() * 3,
+            workers=max_workers,
+            rpc_workers=max_rpc_workers,
             params=params,
             initial_dataset=initial_dataset,
             dataset=dataset,
@@ -327,8 +351,8 @@ def generate_env(engine_path):
 @cli.command('engine-generate', help='Generate a new marvin engine project and install default requirements.')
 @click.option('--name', '-n', prompt='Project name', help='Project name')
 @click.option('--description', '-d', prompt='Short description', default='Marvin engine', help='Library short description')
-@click.option('--mantainer', '-m', prompt='Mantainer name', default='B2W Labs Team', help='Mantainer name')
-@click.option('--email', '-e', prompt='Mantainer email', default='@b2wdigital.com', help='Mantainer email')
+@click.option('--mantainer', '-m', prompt='Mantainer name', default='', help='Mantainer name')
+@click.option('--email', '-e', prompt='Mantainer email', default='', help='Mantainer email')
 @click.option('--package', '-p', default='', help='Package name')
 @click.option('--dest', '-d', envvar='MARVIN_HOME', type=click.Path(exists=True), help='Root folder path for the creation')
 @click.option('--no-env', is_flag=True, default=False, help='Don\'t create the virtual enviroment')
@@ -380,6 +404,7 @@ def generate(name, description, mantainer, email, package, dest, no_env, no_git)
         'name': name,
         'description': description,
         'package': package,
+        'toolbox_version': TOOLBOX_VERSION,
         'type': type_
     }
 
@@ -527,25 +552,33 @@ def _call_git_init(dest):
 @click.option('--spark-conf', '-c', default='/opt/spark/conf', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
 @click.option('--http_host', '-h', default='localhost', help='Engine executor http bind host')
 @click.option('--http_port', '-p', default=8000, help='Engine executor http port')
-@click.option(
-    '--executor-path', '-e',
-    default='marvin-engine-executor.jar',
-    help='Marvin engine executor jar path', type=click.Path(exists=True))
+@click.option('--executor-path', '-e', help='Marvin engine executor jar path', type=click.Path(exists=True))
+@click.option('--max-workers', '-w', default=multiprocessing.cpu_count(), help='Max number of grpc threads workers per action')
+@click.option('--max-rpc-workers', '-rw', default=multiprocessing.cpu_count(), help='Max number of grpc workers per action')
 @click.pass_context
-def engine_httpserver(ctx, action, params_file, initial_dataset, dataset, model, metrics, spark_conf, http_host, http_port, executor_path):
+def engine_httpserver(ctx, action, params_file, initial_dataset, dataset,
+                      model, metrics, spark_conf, http_host, http_port,
+                      executor_path, max_workers, max_rpc_workers):
     logger.info("Starting http and grpc servers ...")
 
     grpcserver = None
     httpserver = None
 
     try:
-        grpcserver = subprocess.Popen(['marvin', 'engine-grpcserver'])
+        grpcserver = subprocess.Popen(['marvin', 'engine-grpcserver', '-a', action, '-w', str(max_workers), '-rw', str(max_rpc_workers)])
+        time.sleep(5)
 
     except:
         logger.exception("Could not start grpc server!")
         sys.exit(1)
 
     try:
+
+        if not (executor_path and os.path.exists(executor_path)):
+            print("Downloading executor binary to be used ...")
+            executor_url = Config.get("executor_url", section="marvin")
+            executor_path = MarvinData.download_file(executor_url, force=False)
+
         httpserver = subprocess.Popen([
             'java',
             '-DmarvinConfig.engineHome={}'.format(ctx.obj['config']['inidir']),
@@ -561,10 +594,65 @@ def engine_httpserver(ctx, action, params_file, initial_dataset, dataset, model,
 
     try:
         while True:
-            time.sleep(10)
+            time.sleep(100)
     except KeyboardInterrupt:
         logger.info("Terminating http and grpc servers...")
         grpcserver.terminate() if grpcserver else None
         httpserver.terminate() if httpserver else None
         logger.info("Http and grpc servers terminated!")
         sys.exit(0)
+
+
+@cli.command('engine-deploy', help='Engine provisioning and deployment command')
+@click.option('--provision', is_flag=True, default=False, help='Forces provisioning')
+@click.option('--package', is_flag=True, default=False, help='Creates engine package')
+@click.option('--skip-clean', is_flag=True, default=False, help='Skips make clean')
+def engine_deploy(provision, package, skip_clean):
+    if provision:
+        subprocess.Popen([
+            "fab",
+            "provision",
+        ], env=os.environ).wait()
+        subprocess.Popen([
+            "fab",
+            "deploy:version={version}".format(version=TOOLBOX_VERSION),
+        ], env=os.environ).wait()
+    elif package:
+        subprocess.Popen([
+            "fab",
+            "package:version={version}".format(version=TOOLBOX_VERSION),
+        ], env=os.environ).wait()
+    elif skip_clean:
+        subprocess.Popen([
+            "fab",
+            "deploy:version={version},skip_clean=True".format(version=TOOLBOX_VERSION),
+        ], env=os.environ).wait()
+    else:
+        subprocess.Popen([
+            "fab",
+            "deploy:version={version}".format(version=TOOLBOX_VERSION),
+        ], env=os.environ).wait()
+
+
+@cli.command('engine-httpserver-remote', help='Remote HTTP server control command')
+@click.option('--http_host', '-h', default='0.0.0.0', help='Engine executor http bind host')
+@click.option('--http_port', '-p', default=8000, help='Engine executor http port')
+@click.argument('command', type=click.Choice(['start', 'stop', 'status']))
+def engine_httpserver_remote(command, http_host, http_port):
+    if command == "start":
+        subprocess.Popen([
+            "fab",
+            "engine_start:{host},{port}".format(host=http_host, port=http_port)
+        ], env=os.environ).wait()
+    elif command == "stop":
+        subprocess.Popen([
+            "fab",
+            "engine_stop",
+        ], env=os.environ).wait()
+    elif command == "status":
+        subprocess.Popen([
+            "fab",
+            "engine_status",
+        ], env=os.environ).wait()
+    else:
+        print("Usage: marvin engine-httpserver-remote [ start | stop | status ]")
