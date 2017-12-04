@@ -23,55 +23,55 @@ Take the following steps to install Marvin Toolbox:
 1. Libsasl2-dev, Python-pip and Graphviz installation
 ```
 Ubuntu: 
-$ sudo apt-get install libsasl2-dev python-pip graphviz -y
+sudo apt-get install libsasl2-dev python-pip graphviz -y
 
 MacOS: 
-$ sudo easy_install pip
-$ brew install openssl graphviz
+sudo easy_install pip
+brew install openssl graphviz
 ```
 2. VirtualEnvWrapper Installation
 ```
-$ sudo pip install --upgrade pip
-$ sudo pip install virtualenvwrapper
+sudo pip install --upgrade pip
+sudo pip install virtualenvwrapper
 ```
 3. Spark installation
 ```
 $ curl https://d3kbcqa49mib13.cloudfront.net/spark-2.1.1-bin-hadoop2.6.tgz -o /tmp/spark-2.1.1-bin-hadoop2.6.tgz
 
-$ sudo tar -xf /tmp/spark-2.1.1-bin-hadoop2.6.tgz -C /opt/
-$ sudo ln -s /opt/spark-2.1.1-bin-hadoop2.6 /opt/spark
+sudo tar -xf /tmp/spark-2.1.1-bin-hadoop2.6.tgz -C /opt/
+sudo ln -s /opt/spark-2.1.1-bin-hadoop2.6 /opt/spark
 
-$ echo "export SPARK_HOME=/opt/spark" >> $HOME/.bash_profile
+echo "export SPARK_HOME=/opt/spark" >> $HOME/.bash_profile
 ```
 4. Set environment variables
 ```
-$ echo "export WORKON_HOME=$HOME/.virtualenvs" >> $HOME/.bash_profile
-$ echo "export MARVIN_HOME=$HOME/marvin" >> $HOME/.bash_profile
-$ echo "export MARVIN_DATA_PATH=$HOME/marvin/data" >> $HOME/.bash_profile
-$ echo "source virtualenvwrapper.sh" >> $HOME/.bash_profile
+echo "export WORKON_HOME=$HOME/.virtualenvs" >> $HOME/.bash_profile
+echo "export MARVIN_HOME=$HOME/marvin" >> $HOME/.bash_profile
+echo "export MARVIN_DATA_PATH=$HOME/marvin/data" >> $HOME/.bash_profile
+echo "source virtualenvwrapper.sh" >> $HOME/.bash_profile
 
-$ source ~/.bash_profile
+source ~/.bash_profile
 ````
 
 5. Clone and install python-toolbox
 
 ```
-$ mkdir $MARVIN_HOME
-$ mkdir $MARVIN_DATA_PATH
-$ cd $MARVIN_HOME
+mkdir $MARVIN_HOME
+mkdir $MARVIN_DATA_PATH
+cd $MARVIN_HOME
 
-$ git clone https://github.com/marvin-ai/marvin-python-toolbox.git
-$ cd marvin-python-toolbox
+git clone https://github.com/marvin-ai/marvin-python-toolbox.git
+cd marvin-python-toolbox
 
-$ mkvirtualenv python-toolbox-env
-$ setvirtualenvproject
+mkvirtualenv python-toolbox-env
+setvirtualenvproject
 
-$ make marvin
+make marvin
 ````
 
 6. Test the installation
 ```
-$ marvin test
+marvin test
 ```
 ### Installing Marvin with Others SOs
 Take the following steps to install Marvin Toolbox using Vagrant:
