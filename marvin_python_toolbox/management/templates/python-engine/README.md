@@ -138,6 +138,6 @@ git push origin master --follow-tags
 
 ### Logging
 
-The default log level is set to _WARNING_. You can change the log level at runtime setting another value to one of the following environment variable: `{{project.package|upper}}_LOG_LEVEL` or `LOG_LEVEL`. The available values are _CRITICAL_, _ERROR_, _WARNING_, _INFO_ and _DEBUG_.
+The default log level is set to _INFO_. You can change the log level at runtime setting another value to one of the following environment variable: `{{project.package|upper}}_LOG_LEVEL` or `LOG_LEVEL`. The available values are _CRITICAL_, _ERROR_, _WARNING_, _INFO_ and _DEBUG_.
 
 Be careful using `LOG_LEVEL`, it may affect another lib.
