@@ -55,19 +55,20 @@ def cli():
     '--action',
     '-a',
     default='all',
-    type=click.Choice(['all', 'acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor']),
+    type=click.Choice(['all', 'acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor', 'feedback']),
     help='Marvin engine action name')
 @click.option('--initial-dataset', '-id', help='Initial dataset file path', type=click.Path(exists=True))
 @click.option('--dataset', '-d', help='Dataset file path', type=click.Path(exists=True))
 @click.option('--model', '-m', help='Engine model file path', type=click.Path(exists=True))
 @click.option('--metrics', '-me', help='Engine Metrics file path', type=click.Path(exists=True))
 @click.option('--params-file', '-pf', default='engine.params', help='Marvin engine params file path', type=click.Path(exists=True))
-@click.option('--messages-file', '-mf', default='engine.messages', help='Marvin engine predictor input messages file path', type=click.Path(exists=True))
+@click.option('--predictor-messages-file', '-mf', default='engine.messages.predictor', help='Marvin engine predictor input messages file path', type=click.Path(exists=True))
+@click.option('--feedback-messages-file', '-mf', default='engine.messages.feedback', help='Marvin engine feedback input messages file path', type=click.Path(exists=True))
 @click.option('--response', '-r', default=True, is_flag=True, help='If enable, print responses from engine online actions (ppreparator and predictor)')
 @click.option('--profiling', default=False, is_flag=True, help='Enable execute method profiling')
 @click.option('--spark-conf', '-c', default='/opt/spark/conf', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
 @click.pass_context
-def dryrun(ctx, action, params_file, messages_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
+def dryrun(ctx, action, params_file, predictor_messages_file, feedback_messages_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
 
     print(chr(27) + "[2J")
 
@@ -75,18 +76,19 @@ def dryrun(ctx, action, params_file, messages_file, initial_dataset, dataset, mo
     os.system("SPARK_CONF_DIR={0} YARN_CONF_DIR={0}".format(spark_conf))
 
     params = read_file(params_file)
-    messages = read_file(messages_file)
+    predictor_messages = read_file(predictor_messages_file)
+    feedback_messages = read_file(feedback_messages_file)
 
-    if action in ['all', 'ppreparator', 'predictor'] and not messages:
+    if action in ['all', 'ppreparator', 'predictor'] and not predictor_messages:
         print('Please, set the input message to be used by the dry run process. Use --input_message flag to informe in a json valid form.')
         sys.exit("Stoping process!")
 
     if action == 'all':
-        pipeline = ['acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor']
+        pipeline = ['acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor', 'feedback']
     else:
         pipeline = [action]
 
-    dryrun = MarvinDryRun(ctx=ctx, messages=messages, print_response=response)
+    dryrun = MarvinDryRun(ctx=ctx, predictor_messages=predictor_messages, feedback_messages=feedback_messages, print_response=response)
 
     initial_start_time = time.time()
 
@@ -104,13 +106,15 @@ CLAZZES = {
     "trainer": "Trainer",
     "evaluator": "MetricsEvaluator",
     "ppreparator": "PredictionPreparator",
-    "predictor": "Predictor"
+    "predictor": "Predictor",
+    "feedback": "Feedback"
 }
 
 
 class MarvinDryRun(object):
-    def __init__(self, ctx, messages, print_response):
-        self.messages = messages
+    def __init__(self, ctx, predictor_messages, feedback_messages, print_response):
+        self.predictor_messages = predictor_messages
+        self.feedback_messages = feedback_messages
         self.pmessages = []
         self.package_name = ctx.obj['package_name']
         self.kwargs = None
@@ -152,9 +156,13 @@ class MarvinDryRun(object):
                 print_message(result)
 
             return result
-
+        # import ipdb; ipdb.set_trace()
         if clazz == 'PredictionPreparator':
-            for idx, msg in enumerate(self.messages):
+            for idx, msg in enumerate(self.predictor_messages):
+                self.pmessages.append(call_online_actions(step, msg, idx))
+
+        elif clazz == 'Feedback':
+            for idx, msg in enumerate(self.feedback_messages):
                 self.pmessages.append(call_online_actions(step, msg, idx))
 
         elif clazz == 'Predictor':
@@ -264,7 +272,7 @@ class MarvinEngineServer(object):
     '--action',
     '-a',
     default='all',
-    type=click.Choice(['all', 'acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor']),
+    type=click.Choice(['all', 'acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor', 'feedback']),
     help='Marvin engine action name')
 @click.option('--initial-dataset', '-id', help='Initial dataset file path', type=click.Path(exists=True))
 @click.option('--dataset', '-d', help='Dataset file path', type=click.Path(exists=True))
@@ -542,7 +550,7 @@ def _call_git_init(dest):
     '--action',
     '-a',
     default='all',
-    type=click.Choice(['all', 'acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor']),
+    type=click.Choice(['all', 'acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor', 'feedback']),
     help='Marvin engine action name')
 @click.option('--initial-dataset', '-id', help='Initial dataset file path', type=click.Path(exists=True))
 @click.option('--dataset', '-d', help='Dataset file path', type=click.Path(exists=True))
