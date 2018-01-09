@@ -156,7 +156,7 @@ class MarvinDryRun(object):
                 print_message(result)
 
             return result
-        # import ipdb; ipdb.set_trace()
+
         if clazz == 'PredictionPreparator':
             for idx, msg in enumerate(self.predictor_messages):
                 self.pmessages.append(call_online_actions(step, msg, idx))
