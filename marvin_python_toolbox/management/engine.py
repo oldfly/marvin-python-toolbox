@@ -62,13 +62,13 @@ def cli():
 @click.option('--model', '-m', help='Engine model file path', type=click.Path(exists=True))
 @click.option('--metrics', '-me', help='Engine Metrics file path', type=click.Path(exists=True))
 @click.option('--params-file', '-pf', default='engine.params', help='Marvin engine params file path', type=click.Path(exists=True))
-@click.option('--predictor-messages-file', '-mf', default='engine.messages.predictor', help='Marvin engine predictor input messages file path', type=click.Path(exists=True))
-@click.option('--feedback-messages-file', '-mf', default='engine.messages.feedback', help='Marvin engine feedback input messages file path', type=click.Path(exists=True))
+@click.option('--messages-file', '-mf', default='engine.messages', help='Marvin engine predictor input messages file path', type=click.Path(exists=True))
+@click.option('--feedback-file', '-ff', default='feedback.messages', help='Marvin engine feedback input messages file path', type=click.Path(exists=True))
 @click.option('--response', '-r', default=True, is_flag=True, help='If enable, print responses from engine online actions (ppreparator and predictor)')
 @click.option('--profiling', default=False, is_flag=True, help='Enable execute method profiling')
 @click.option('--spark-conf', '-c', default='/opt/spark/conf', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
 @click.pass_context
-def dryrun(ctx, action, params_file, predictor_messages_file, feedback_messages_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
+def dryrun(ctx, action, params_file, messages_file, feedback_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
 
     print(chr(27) + "[2J")
 
@@ -76,10 +76,10 @@ def dryrun(ctx, action, params_file, predictor_messages_file, feedback_messages_
     os.system("SPARK_CONF_DIR={0} YARN_CONF_DIR={0}".format(spark_conf))
 
     params = read_file(params_file)
-    predictor_messages = read_file(predictor_messages_file)
-    feedback_messages = read_file(feedback_messages_file)
+    messages_file = read_file(messages_file)
+    feedback_file = read_file(feedback_file)
 
-    if action in ['all', 'ppreparator', 'predictor'] and not predictor_messages:
+    if action in ['all', 'ppreparator', 'predictor'] and not messages_file:
         print('Please, set the input message to be used by the dry run process. Use --input_message flag to informe in a json valid form.')
         sys.exit("Stoping process!")
 
@@ -88,7 +88,7 @@ def dryrun(ctx, action, params_file, predictor_messages_file, feedback_messages_
     else:
         pipeline = [action]
 
-    dryrun = MarvinDryRun(ctx=ctx, predictor_messages=predictor_messages, feedback_messages=feedback_messages, print_response=response)
+    dryrun = MarvinDryRun(ctx=ctx, messages=[messages_file, feedback_file], print_response=response)
 
     initial_start_time = time.time()
 
@@ -112,9 +112,9 @@ CLAZZES = {
 
 
 class MarvinDryRun(object):
-    def __init__(self, ctx, predictor_messages, feedback_messages, print_response):
-        self.predictor_messages = predictor_messages
-        self.feedback_messages = feedback_messages
+    def __init__(self, ctx, messages, print_response):
+        self.predictor_messages = messages[0]
+        self.feedback_messages = messages[1]
         self.pmessages = []
         self.package_name = ctx.obj['package_name']
         self.kwargs = None

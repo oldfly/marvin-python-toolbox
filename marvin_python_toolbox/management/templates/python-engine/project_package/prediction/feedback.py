@@ -24,6 +24,7 @@ class Feedback(EngineBasePrediction):
 
     def execute(self, input_message, **kwargs):
         """
-        Return feedback messages
+        Receive feedback message, user can manipulate this message for any use.
+        Return "Done" to signal that the message is received and processed.
         """
-        return {"feedback_value": "feedback_response"}
+        return {"message": "Done"}
