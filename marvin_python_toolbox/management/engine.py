@@ -68,6 +68,10 @@ def cli():
 @click.option('--profiling', default=False, is_flag=True, help='Enable execute method profiling')
 @click.option('--spark-conf', '-c', default='/opt/spark/conf', type=click.Path(exists=True), help='Spark configuration folder path to be used in this session')
 @click.pass_context
+def dryrun_cli(ctx, action, params_file, messages_file, feedback_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
+    dryrun(ctx, action, params_file, messages_file, feedback_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling)
+
+
 def dryrun(ctx, action, params_file, messages_file, feedback_file, initial_dataset, dataset, model, metrics, response, spark_conf, profiling):
 
     print(chr(27) + "[2J")
@@ -88,12 +92,12 @@ def dryrun(ctx, action, params_file, messages_file, feedback_file, initial_datas
     else:
         pipeline = [action]
 
-    dryrun = MarvinDryRun(ctx=ctx, messages=[messages_file, feedback_file], print_response=response)
+    _dryrun = MarvinDryRun(ctx=ctx, messages=[messages_file, feedback_file], print_response=response)
 
     initial_start_time = time.time()
 
     for step in pipeline:
-        dryrun.execute(clazz=CLAZZES[step], params=params, initial_dataset=initial_dataset, dataset=dataset, model=model, metrics=metrics, profiling_enabled=profiling)
+        _dryrun.execute(clazz=CLAZZES[step], params=params, initial_dataset=initial_dataset, dataset=dataset, model=model, metrics=metrics, profiling_enabled=profiling)
 
     print("Total Time : {:.2f}s".format(time.time() - initial_start_time))
 
@@ -108,7 +112,7 @@ CLAZZES = {
     "ppreparator": "PredictionPreparator",
     "predictor": "Predictor",
     "feedback": "Feedback"
-}
+} 
 
 
 class MarvinDryRun(object):
