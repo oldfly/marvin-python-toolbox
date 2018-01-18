@@ -87,6 +87,10 @@ def dryrun(ctx, action, params_file, messages_file, feedback_file, initial_datas
         print('Please, set the input message to be used by the dry run process. Use --input_message flag to informe in a json valid form.')
         sys.exit("Stoping process!")
 
+    if action in ['all', 'feedback'] and not feedback_file:
+        print('Please, set the feedback input message to be used by the dry run process. Use --input_message flag to informe in a json valid form.')
+        sys.exit("Stoping process!")
+
     if action == 'all':
         pipeline = ['acquisitor', 'tpreparator', 'trainer', 'evaluator', 'ppreparator', 'predictor', 'feedback']
     else:
