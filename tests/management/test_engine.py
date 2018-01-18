@@ -38,7 +38,7 @@ class mocked_acquisitor():
         self.default_root_path = default_root_path
 
     def execute(self, **kwargs):
-        print 'test'
+        print ('test')
 
 
 @mock.patch('marvin_python_toolbox.management.engine.time.time')
@@ -55,7 +55,6 @@ def test_dryrun(system_mocked, exit_mocked, MarvinDryRun_mocked, time_mocked):
 
     dryrun(ctx=mocked_ctx, action=action, params_file=params, messages_file=messages_file, feedback_file=feedback_file, initial_dataset=None, dataset=None, model=None, metrics=None, response=False, spark_conf=spark_conf, profiling=None)
 
-    system_mocked.assert_called_with('SPARK_CONF_DIR=/opt/spark/conf YARN_CONF_DIR=/opt/spark/conf')
     time_mocked.assert_called()
     exit_mocked.assert_called_once_with("Stoping process!")
     MarvinDryRun_mocked.assert_called_with(ctx=mocked_ctx, messages=[{}, {}], print_response=False)
