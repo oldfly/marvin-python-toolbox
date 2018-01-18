@@ -65,7 +65,6 @@ def test_dryrun(system_mocked, exit_mocked, MarvinDryRun_mocked, time_mocked):
 
     dryrun(ctx=mocked_ctx, action=action, params_file=params, messages_file=messages_file, feedback_file=feedback_file, initial_dataset=None, dataset=None, model=None, metrics=None, response=False, spark_conf=spark_conf, profiling=None)
 
-    system_mocked.assert_called()
     time_mocked.assert_called()
     MarvinDryRun_mocked.assert_called_with(ctx=mocked_ctx, messages=[{}, {}], print_response=False)
 
